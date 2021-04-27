@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 from pwn import*
 import os
+from ret2dl_resolve import ret2dl_resolve
 class bubble(object):
 	def __init__(self,pwn_file = ""):
-		self.pwn_file = pwn_file
-		self.context = context
-		self.context.binary = pwn_file
+		if pwn_file:
+			self.pwn_file = pwn_file
+			self.context = context
+			self.context.binary = pwn_file
+			self.elf = ELF(pwn_file)
 	def local(self,libc_path):
 		self.libc_path = "~/glibc-all-in-one/libs/"+libc_path+"/"
 		self.libc_version = re.findall("libs/(.*?)-",self.libc_path)[0]
@@ -29,7 +32,6 @@ class bubble(object):
 		else:
 			for i in os.listdir("/home/cnitlrt/glibc-all-in-one/libs"):
 				print i
-
 	def process(self):
 		self.process = process
 		self.p_process = self.process(self.pwn_file)
@@ -41,6 +43,9 @@ class bubble(object):
 		self.remote = remote
 		self.p_remote = self.remote(self.host,self.port)
 		return self.p_remote
+	def ret2dl_resolve(self):
+		self.ret2dl_resolve = ret2dl_resolve(self)
+		return self.ret2dl_resolve
 	def l64(self):
 		return u64(self.p.recvuntil("\x7f")[-6:].ljust(8,"\x00"))
 	def l32(self):
