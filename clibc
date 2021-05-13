@@ -1,18 +1,17 @@
 #!/bin/bash
-#usage : clibc pwn_file libc_version libc_dir
-#usage_example: clibc pwn 2.27 ~/glibc-all-in-one/libs/2.27-3ubuntu1.3_amd64
 FILE_NAME=$1
 LIBC_VERSION=$2
-
-EBIT=$(file $FILE_NAME |awk '{print$3}'|cut -c 1-2)
-if [ $EBIT -eq "32" ];then
-    LIBC_DIR=/usr/lib/freelibs/i386
-elif [ $EBIT -eq "64" ];then
-    LIBC_DIR=/usr/lib/freelibs/amd64
-else
-    echo "It's not a elf file"
-    exit
+if [ "$FILE_NAME" = "" ];then
+	printf "Usage <%s> : clibc <file> <version> <dir>\n"
+	printf "Please input the file\n"
+	exit
 fi
+if [ "$LIBC_VERSION" = "" ];then
+	printf "Usage <%s> : clibc <file> <version> <dir>\n"
+	printf "Please input libc version\n"
+	exit
+fi
+LIBC_DIR=~/glibc-all-in-one/libs
 libc_dir=$(find $LIBC_DIR -name "$LIBC_VERSION*")
 if [ "$libc_dir" = "" ];then
     echo "Not support version or your $LIBC_DIR don't have libc"
@@ -20,8 +19,9 @@ if [ "$libc_dir" = "" ];then
 fi
 if  [ "$3" ] 
 then
-    patchelf --set-interpreter $3/ld-$LIBC_VERSION.so --set-rpath $3/ $1
+	patchelf --set-interpreter $3/ld-$LIBC_VERSION.so --set-rpath $3/ $1
+	echo "success!!!"
 else
-    patchelf --set-interpreter $libc_dir/ld-$LIBC_VERSION.so --set-rpath $libc_dir/ $1
+	printf '%s\n' "$libc_dir"
+	echo -e '\033[32mPlease specify the directory \033[0m'
 fi
-echo "success!!!"
