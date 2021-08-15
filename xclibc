@@ -3,6 +3,16 @@ filename=$1
 libcname=$2
 LIBC_DIR=~/glibc-all-in-one
 SOURCE="https://mirror.tuna.tsinghua.edu.cn/ubuntu/pool/main/g/glibc"
+if [ "$filename" = "" ];then
+    printf "Usage <%s> : xclibc <file> <libcfile>\n"
+    printf "Please input the file\n"
+    exit
+fi
+if [ "$libcname" = "" ];then
+    printf "Usage <%s> : xclibc <file> <libcfile>\n"
+    printf "Please input libcfile\n"
+    exit
+fi
 die() {
   echo >&2 $1
   exit 1
@@ -26,6 +36,7 @@ get_arch() {
 		arch='i386'
 	else 
 		echo "no"
+		exit 1
 	fi
 }
 get_ver() {
@@ -116,6 +127,7 @@ download_single() {
 	extract $LIBC_DIR/debs/$dbg_name $LIBC_DIR/libs/$id/.debug
 	echo "  -> Package saved to $LIBC_DIR/libs/$id/.debug"
 }
+
 get_arch "$2"
 get_ver
 download_single
