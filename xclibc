@@ -1,8 +1,15 @@
 #!/bin/bash
+if [ ! -d "./bak_dir" ]; then
+    mkdir ./bak_dir
+fi
+if [ ! -f "./bak_dir/$1.bak" ]; then
+    cp $1 ./bak_dir/$1.bak
+fi
 filename=$1
 libcname=$2
-LIBC_DIR=~/glibc-all-in-one
+LIBC_DIR=/home/cnitlrt/glibc-all-in-one
 SOURCE="https://mirror.tuna.tsinghua.edu.cn/ubuntu/pool/main/g/glibc"
+OLD_SOURCE="http://old-releases.ubuntu.com/ubuntu/pool/main/g/glibc"
 if [ "$filename" = "" ];then
     printf "Usage <%s> : xclibc <file> <libcfile>\n"
     printf "Please input the file\n"
@@ -27,56 +34,56 @@ usage1() {
   exit 2
 }
 get_arch() {
-	local x86="X86-64"
-	local x32="80386"
-	local data=$(readelf -h $1)
-	if [[ $data =~ $x86 ]];then
-		arch='amd64'
-	elif [[ $data =~ $x32 ]];then
-		arch='i386'
-	else 
-		echo "no"
-		exit 1
-	fi
+    local x86="X86-64"
+    local x32="80386"
+    local data=$(readelf -h $1)
+    if [[ $data =~ $x86 ]];then
+        arch='amd64'
+    elif [[ $data =~ $x32 ]];then
+        arch='i386'
+    else 
+        echo "no"
+        exit 1
+    fi
 }
 get_ver() {
-	local buf=$(strings $libcname |grep "GNU C Library" |awk '{print $6}')
-	libcversion=${buf%*)}
-	buf=$(strings $libcname |grep "GNU C Library" |awk '{print $10}')
-	version=${buf%*.}
+    local buf=$(strings $libcname |grep "GNU C Library" |awk '{print $6}')
+    libcversion=${buf%*)}
+    buf=$(strings $libcname |grep "GNU C Library" |awk '{print $6}')
+    version=${buf%-*}
 }
 clibc() {
-	FILE_NAME=$1
-	LIBC_VERSION=$2
-	if [ "$FILE_NAME" = "" ];then
-	    printf "Usage <%s> : clibc <file> <version> <dir>\n"
-	    printf "Please input the file\n"
-	    exit
-	fi
-	if [ "$LIBC_VERSION" = "" ];then
-	    printf "Usage <%s> : clibc <file> <version> <dir>\n"
-	    printf "Please input libc version\n"
-	    exit
-	fi
-	LIBC_DIR=~/glibc-all-in-one/libs
-	libc_dir=$(find $LIBC_DIR -name "$LIBC_VERSION*")
-	if [ "$libc_dir" = "" ];then
-	    echo "Not support version or your $LIBC_DIR don't have libc"
-	    exit
-	fi
-	if  [ "$3" ] 
-	then
-	    patchelf --set-interpreter $3/ld-$LIBC_VERSION.so --set-rpath $3/ $1
-	else
-	    printf '%s\n' "$libc_dir"
-	    echo -e '\033[32mPlease specify the directory \033[0m'
-	fi
+    FILE_NAME=$1
+    LIBC_VERSION=$2
+    if [ "$FILE_NAME" = "" ];then
+        printf "Usage <%s> : clibc <file> <version> <dir>\n"
+        printf "Please input the file\n"
+        exit
+    fi
+    if [ "$LIBC_VERSION" = "" ];then
+        printf "Usage <%s> : clibc <file> <version> <dir>\n"
+        printf "Please input libc version\n"
+        exit
+    fi
+    LIBC_DIR=/home/cnitlrt/glibc-all-in-one/libs
+    libc_dir=$(find $LIBC_DIR -name "$LIBC_VERSION*")
+    if [ "$libc_dir" = "" ];then
+        echo "Not support version or your $LIBC_DIR don't have libc"
+        exit
+    fi
+    if  [ "$3" ] 
+    then
+        patchelf --set-interpreter $3/ld-$LIBC_VERSION.so --set-rpath $3/ $1
+    else
+        printf '%s\n' "$libc_dir"
+        echo -e '\033[32mPlease specify the directory \033[0m'
+    fi
 
 }
 extract() {
-	if [[ $# -ne 2 ]]; then
-	    usage1
-	fi
+    if [[ $# -ne 2 ]]; then
+        usage1
+    fi
     local deb=$1
     local out=$2
     if [ ! -d "$out" ]; then
@@ -96,40 +103,74 @@ extract() {
     rm -rf $tmp
 }
 download_single() {
-	id=$libcversion'_'$arch
-	local LIBC_PREFIX="libc6_"
-	local LIBC_DBG_PREFIX="libc6-dbg_"
-	local deb_name=$LIBC_PREFIX$id.deb
-	local dbg_name=$LIBC_DBG_PREFIX$id.deb
-	echo "Getting $id"
-	if [ -d "$LIBC_DIR/libs/$id" ]; then
-		clibc $filename $version $LIBC_DIR/libs/$id
-		die "success"
-	fi
-	# download binary package
-	url="$SOURCE/$deb_name"
-	echo "  -> Location: $url"
-	echo "  -> Downloading libc binary package"
-	wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$deb_name || die "Failed to download package from $url"
-	echo "  -> Extracting libc binary package"
+    id=$libcversion'_'$arch
+    local LIBC_PREFIX="libc6_"
+    local LIBC_DBG_PREFIX="libc6-dbg_"
+    local deb_name=$LIBC_PREFIX$id.deb
+    local dbg_name=$LIBC_DBG_PREFIX$id.deb
+    echo "Getting $id"
+    if [ -d "$LIBC_DIR/libs/$id" ]; then
+        clibc $filename $version $LIBC_DIR/libs/$id
+        die "success"
+    fi
+    # download binary package
+    url="$SOURCE/$deb_name"
+    echo "  -> Location: $url"
+    echo "  -> Downloading libc binary package"
+    sudo wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$deb_name || download_old_single
+    echo "  -> Extracting libc binary package"
+    mkdir $LIBC_DIR/libs/$id
+    extract $LIBC_DIR/debs/$deb_name $LIBC_DIR/libs/$id
+    echo "  -> Package saved to $LIBC_DIR/$libs/$id"
 
-	mkdir $LIBC_DIR/libs/$id
-	extract $LIBC_DIR/debs/$deb_name $LIBC_DIR/libs/$id
-	echo "  -> Package saved to $LIBC_DIR/$libs/$id"
+    # download debug info package
+    url="$SOURCE/$dbg_name"
+    echo "  -> Location: $url"
+    echo "  -> Downloading libc debug package"
+    sudo wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$dbg_name || download_old_single
+    echo "  -> Extracting libc debug package"
+    mkdir $LIBC_DIR/libs/$id/.debug
+    extract $LIBC_DIR/debs/$dbg_name $LIBC_DIR/libs/$id/.debug
+    echo "  -> Package saved to $LIBC_DIR/libs/$id/.debug"
+    clibc $filename $version $LIBC_DIR/libs/$id
+    die "success"
+}
+download_old_single(){
+    id=$libcversion'_'$arch
+    local LIBC_PREFIX="libc6_"
+    local LIBC_DBG_PREFIX="libc6-dbg_"
+    local deb_name=$LIBC_PREFIX$id.deb
+    local dbg_name=$LIBC_DBG_PREFIX$id.deb
+    echo "Getting $id"
+    if [ -d "$LIBC_DIR/libs/$id" ]; then
+        clibc $filename $version $LIBC_DIR/libs/$id
+        die "success"
+    fi
+    # download binary package
+    url="$OLD_SOURCE/$deb_name"
+    echo "  -> Location: $url"
+    echo "  -> Downloading libc binary package"
+    sudo wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$deb_name || die "Failed to download package from $url"
+    echo "  -> Extracting libc binary package"
 
-	# download debug info package
-	url="$SOURCE/$dbg_name"
-	echo "  -> Location: $url"
-	echo "  -> Downloading libc debug package"
-	wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$dbg_name || die "Failed to download package from $url"
-	echo "  -> Extracting libc debug package"
-	mkdir $LIBC_DIR/libs/$id/.debug
-	extract $LIBC_DIR/debs/$dbg_name $LIBC_DIR/libs/$id/.debug
-	echo "  -> Package saved to $LIBC_DIR/libs/$id/.debug"
+    mkdir $LIBC_DIR/libs/$id
+    extract $LIBC_DIR/debs/$deb_name $LIBC_DIR/libs/$id
+    echo "  -> Package saved to $LIBC_DIR/$libs/$id"
+
+    # download debug info package
+    url="$OLD_SOURCE/$dbg_name"
+    echo "  -> Location: $url"
+    echo "  -> Downloading libc debug package"
+    sudo wget "$url" 2>/dev/null -O $LIBC_DIR/debs/$dbg_name || die "Failed to download package from $url"
+    echo "  -> Extracting libc debug package"
+    mkdir $LIBC_DIR/libs/$id/.debug
+    extract $LIBC_DIR/debs/$dbg_name $LIBC_DIR/libs/$id/.debug
+    echo "  -> Package saved to $LIBC_DIR/libs/$id/.debug"
+    clibc $filename $version $LIBC_DIR/libs/$id
+    die "success"
+
 }
 
 get_arch "$2"
 get_ver
 download_single
-clibc $filename $version $LIBC_DIR/libs/$id
-die "success"
